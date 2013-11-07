@@ -54,7 +54,7 @@ def main(sdir, ddir=None):
         if not isfile(spath) or not ext in EXTS:
             continue
         
-        dname = name + '.'+avhash(spath) + fix_ext(ext)
+        dname = ''.join([name, ' (', avhash(spath), ')', fix_ext(ext)])
         dpath = os.path.join(ddir, dname)
         
         if spath==dpath:
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     optlist, args = getopt.getopt(sys.argv[1:], 'd:qn')
     for key, value in optlist:
         if key=='-d': ddir=value
-        if ket=='-n': SETTING_RENAME=False
+        if key=='-n': SETTING_RENAME=False
         if key=='-q': SETTING_QUIET=True
     if args:
         sdir=args[0]
