@@ -1,18 +1,18 @@
 #!/bin/bash
 
+USAGE='Usage $0 <kernel version> [more]'
+
 # Checking environment.
-KERNELS="$@"
+[[ -n "$@" ]] && KERNELS="$@" || exit 2
 
 dkms=$(which dkms)
 [[ $? != 0 ]] &&
     echo "!! ERROR! \`dkms\` not found!" && exit 1
 
-if [[ $EUID = 0 ]]; then
-    dkms_root=$dkms
-else
-    dkms_root="$(which sudo) $dkms"
+if [[ $EUID != 0 ]]; then
+    sudo="$(which sudo)"
     [[ $? != 0 ]] && 
-        echo "!! ERROR! \`sudo\` not found! Please run with root." && exit 1
+        echo "!! ERROR! \`sudo\` not found! Please run as root." && exit 1
 fi
 
 
@@ -20,22 +20,25 @@ fi
 for kernel in $KERNELS; do
     tmp=$($dkms status -k $kernel | 
         grep -P "(installed|built)" |
-        sed -r "s|^([0-9a-zA-Z-]+), ([0-9.]+), ($kernel),.+|\1/\2  -k \3|")
+        sed -r "s|^([0-9a-zA-Z-]+), ([0-9.]+), ($kernel),.+|\1/\2 \3|")
     [[ -n "$tmp" ]] &&
         list=$(echo -e "$list\n$tmp")
 done
 
 
 # Confirm
-echo -e "$list\n"
+echo "==> Modules below will be removed."
+while read module kernel; do
+    [[ -n "$module" ]] && [[ -n "$kernel" ]] || continue
+    echo "$kernel: $module"
+done <<<"$list"
 read -r -p "==> Continue? [Y/n] " prompt
 [[ ! $prompt =~ ^[Yy]?$ ]] && exit 0
 
 
 # Processing
-IFS=$'\n'
-for item in $list; do
-    [[ -z "$item" ]] && continue
-    echo "==> Removing $item"
-    $dkms_root remove $module -k $kernel
-done
+while read module kernel; do
+    [[ -n "$module" ]] && [[ -n "$kernel" ]] || continue
+    echo "==> Removing $kernel: $module"
+    $sudo $dkms remove $module -k $kernel
+done <<<"$list"
