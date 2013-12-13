@@ -8,15 +8,17 @@ METRIC=16
 add="route add"
 drt="$add $(ip route show 0/0 | head -n1 | grep -Po 'via \d+\.\d+\.\d+\.\d+') metric $METRIC"
 vpn="$add dev $GATEWAY metric $METRIC"
+ip_drt="ip $drt"
+ip_vpn="ip $vpn"
 
 
 #### User-defined ####
-$drt 193.105.134.117    # btdigg.org
+$ip_drt 193.105.134.117    # btdigg.org
 
 
 ######## Sites ########
 # exblog.jp
-$vpn 180.235.96.0/21
+$ip_vpn 180.235.96.0/21
 
 
 ## Amazon
@@ -50,7 +52,7 @@ $vpn 180.235.96.0/21
 
 ## Bitly
 # http://whois.arin.net/rest/org/BITLY/nets
-$vpn 69.58.188.0/24
+$ip_vpn 69.58.188.0/24
 
 ## Dropbox
 # http://bgp.he.net/AS19679#_prefixes
@@ -72,6 +74,12 @@ $vpn 74.119.76.0/22
 $vpn 103.4.96.0/22
 $vpn 173.252.64.0/18
 $vpn 204.15.20.0/22
+EOF
+
+## Github
+# http://bgp.he.net/AS36459#_prefixes
+ip -force -batch - <<EOF
+$vpn 192.30.252.0/22
 EOF
 
 ## Google
@@ -112,6 +120,7 @@ $vpn 216.58.192.0/19
 $vpn 216.239.32.0/19
 
 $vpn 69.46.66.0/24
+$vpn 206.169.0.0/16
 EOF
 
 ## Mediafire
