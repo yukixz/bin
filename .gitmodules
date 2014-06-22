@@ -1,0 +1,3 @@
+[submodule "dnsmasq/dnsmasq.d/dnsmasq-china-list"]
+	path = dnsmasq/dnsmasq.d/dnsmasq-china-list
+	url = git@github.com:felixonmars/dnsmasq-china-list.git
