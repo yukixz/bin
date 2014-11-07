@@ -3,7 +3,10 @@
 import struct
 import sys
 
-def main(files):
+def main(files, 
+        SIZE = 64,  # Must be a Multiple pf 8.
+        MAGIC = 0x0123456789ABCDEF,  # Must be 8 bytes
+        ):
     for path in files:
         with open(path, 'r+b') as f:
             rbuffer = f.read(SIZE)
@@ -13,7 +16,7 @@ def main(files):
                 continue
             while len(rbuffer) > 0:
                 wbuffer += struct.pack('=Q',
-                        struct.unpack('=Q', rbuffer[:8])[0] ^ MAGIC_NUMBER)
+                        struct.unpack('=Q', rbuffer[:8])[0] ^ MAGIC)
                 rbuffer = rbuffer[8:]
 
             f.seek(0)
@@ -21,8 +24,5 @@ def main(files):
 
 
 if __name__ == '__main__':
-    config = {
-            'SIZE': 64, # Must be a Multiple pf 8.
-            'MAGIC_NUMBER': 0x0123456789ABCDEF, # Must be 8 bytes
-            }
+    config = {}
     main(files=sys.argv[1:], **config)
