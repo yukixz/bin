@@ -11,19 +11,42 @@ import socketserver
 import sys
 import urllib.parse
 
-IPP = 10
+IMAGE_PER_PAGE = 10
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def send_head(self):
+        ''' Overwriting SimpleHTTPRequestHandler.send_head()
+            Remove redirect of path not endswith '/'
+            Remove display of index.html
+        '''
+
+        path = self.translate_path(self.path)
+        if os.path.isdir(path):
+            return self.list_directory(path)
+        
+        ctype = self.guess_type(path)
+        try:
+            f = open(path, 'rb')
+        except OSError:
+            self.send_error(404, "File not found")
+            return None
+        try:
+            self.send_response(200)
+            self.send_header("Content-type", ctype)
+            fs = os.fstat(f.fileno())
+            self.send_header("Content-Length", str(fs[6]))
+            self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+            self.end_headers()
+            return f
+        except:
+            f.close()
+            raise
+
     def list_directory(self, path):
         ''' Overwriting SimpleHTTPRequestHandler.list_directory()
         '''
-        try:
-            list = os.listdir(path)
-            list.sort(key=lambda a: a.lower())
-            list.insert(0, '..')    #
-        except os.error:
-            self.send_error(404, "No permission to list directory")
-            return None
+        
+        # make html header
         r = []
         displaypath = html.escape(urllib.parse.unquote(self.path))
         enc = sys.getfilesystemencoding()
@@ -35,14 +58,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                  'content="text/html; charset=%s">' % enc)
         r.append('<title>%s</title>\n</head>' % title)
         r.append('<body>\n<h1>%s</h1>' % title)
-        r.append('<hr>\n<ul>')
 
-        list_image = []
+        # make file list
+        try:
+            list = os.listdir(path)
+            list.sort(key=lambda a: a.lower())
+            list.insert(0, '..')    # Add link to parent directory.
+        except os.error:
+            self.send_error(404, "No permission to list directory")
+            return None
+
+        # make image list and file list
+        image_list = []
+        file_list = []
         for name in list:
-            ext = os.path.splitext(name)[1]
-            if ext.lower() in ['.bmp', '.gif', '.jpeg', '.jpg', '.png']:
-                list_image.append(name)
-                continue
+            ext = os.path.splitext(name)[1].lower()
+            if ext in ['.bmp', '.gif', '.jpeg', '.jpg', '.png']:
+                image_list.append(name)
+            else:
+                file_list.append(name)
+        
+        # make file html
+        r.append('<hr>\n<ul>')
+        for name in file_list:
             fullname = os.path.join(path, name)
             displayname = linkname = name
             # Append / for directories or @ for symbolic links
@@ -51,22 +89,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 linkname = name + "/"
             if os.path.islink(fullname):
                 displayname = name + "@"
-                # Note: a link to a directory displays with @ and links with /
-            r.append('<li><a href="%s">%s</a></li>'
-                    % (urllib.parse.quote(linkname), html.escape(displayname)))
+            r.append('<li><a href="%s">%s</a></li>' 
+                % (urllib.parse.quote(linkname), html.escape(displayname)))
         r.append('</ul>\n<hr>')
 
+        # image paging
         splits = urllib.parse.urlsplit(self.path)
         query = splits[3]
-        while query.endswith('/'):
+        if query.endswith('/'):
             query = query[:-1]
         querys = urllib.parse.parse_qs(query)
         page = int(querys.get('page', '0')[0])
-        page_total = math.ceil(len(list_image) / IPP)
-        if page <= 0:
-            page = 0
-            page_prev = 0
-            page_next = 1
+        page_total = math.ceil(len(image_list) / IMAGE_PER_PAGE)
+        if page <= 1:
+            page = 1
+            page_prev = 1
+            page_next = 2
         elif page >= page_total:
             page = page_total
             page_prev = page_total - 1
@@ -74,23 +112,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         else:
             page_prev = page - 1
             page_next = page + 1
-
-        for name in list_image[IPP*page: IPP*(page+1)]:
-            fullname = os.path.join(path, name)
-            if os.path.isdir(fullname):
-                continue
-            r.append('<img src="%s"/><br/>'
-                    % (urllib.parse.quote(name)))
-        r.append('<h2><a href="%s">Prev Page</a>' % urllib.parse.urlunsplit((
+        
+        # make image html
+        first_index = IMAGE_PER_PAGE * (page - 1)
+        last_index = IMAGE_PER_PAGE * page
+        for name in image_list[first_index:last_index]:
+            r.append('<img src="%s"/><br/>' % (urllib.parse.quote(name)))
+        r.append('<h1><a href="%s">Prev Page</a>' % urllib.parse.urlunsplit((
                 splits[0], splits[1], splits[2],
-                "page=%d/" % page_prev, splits[4])))
+                "page=%d" % page_prev, splits[4])))
         r.append('| {current}/{total} |'.format(
                 current = page, total = page_total))
-        r.append('<a href="%s">Next Page</a></h2>' % urllib.parse.urlunsplit((
+        r.append('<a href="%s">Next Page</a></h1>' % urllib.parse.urlunsplit((
                 splits[0], splits[1], splits[2],
-                "page=%d/" % page_next, splits[4])))
-        r.append('</body>\n</html>\n')
+                "page=%d" % page_next, splits[4])))
+        
+        # make html footer
+        r.append('</body>\n</html>')
 
+        # response
         encoded = '\n'.join(r).encode(enc)
         f = io.BytesIO()
         f.write(encoded)
@@ -107,7 +147,7 @@ class TCPServer(socketserver.TCPServer):
 
 
 if __name__=='__main__':
-    httpd = TCPServer(("", 8000), Handler)
-    print("Serving on 0.0.0.0:8000 ...")
+    addr = ("", 8000)
+    httpd = TCPServer(addr, Handler)
+    print("Serving on %s:%d ..." % addr)
     httpd.serve_forever()
-

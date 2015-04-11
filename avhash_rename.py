@@ -27,7 +27,7 @@ def generate_name(path):
     im = Image.open(path)
     
     digest = avhash(im)
-    digest_str = hex(hash)[2:].zfill(16)
+    digest_str = hex(digest)[2:].zfill(16)
     size = int(math.sqrt(im.size[0] * im.size[1]))
     size_str = hex(size % 0xFFFF)[2:].zfill(4)
     
