@@ -46,6 +46,8 @@ def main(files):
         filename = generate_name(path)
         new_path = os.path.join(filedir, filename + fileext)
 
+        if path == new_path:
+            continue
         if os.path.exists(new_path):
             print("!! {src} -> {dst}".format(src=path, dst=new_path))
             continue

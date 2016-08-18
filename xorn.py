@@ -8,6 +8,7 @@ def main(files,
         MAGIC = 0x0123456789ABCDEF,  # Must be 8 bytes
         ):
     for path in files:
+        print("Processing %s" % path)
         with open(path, 'r+b') as f:
             rbuffer = f.read(SIZE)
             wbuffer = b""

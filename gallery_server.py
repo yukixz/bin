@@ -11,7 +11,8 @@ import socketserver
 import sys
 import urllib.parse
 
-IMAGE_PER_PAGE = 10
+IMAGE_PER_PAGE = 20
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def send_head(self):
@@ -23,7 +24,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = self.translate_path(self.path)
         if os.path.isdir(path):
             return self.list_directory(path)
-        
+
         ctype = self.guess_type(path)
         try:
             f = open(path, 'rb')
@@ -35,7 +36,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-type", ctype)
             fs = os.fstat(f.fileno())
             self.send_header("Content-Length", str(fs[6]))
-            self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+            self.send_header("Last-Modified",
+                             self.date_time_string(fs.st_mtime))
             self.end_headers()
             return f
         except:
@@ -45,7 +47,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def list_directory(self, path):
         ''' Overwriting SimpleHTTPRequestHandler.list_directory()
         '''
-        
+
         # make html header
         r = []
         displaypath = html.escape(urllib.parse.unquote(self.path))
@@ -53,11 +55,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         title = '%s' % displaypath
         r.append('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" '
                  '"http://www.w3.org/TR/html4/strict.dtd">')
-        r.append('<html>\n<head>')
+        r.append('<html><head>')
         r.append('<meta http-equiv="Content-Type" '
                  'content="text/html; charset=%s">' % enc)
-        r.append('<title>%s</title>\n</head>' % title)
-        r.append('<body>\n<h1>%s</h1>' % title)
+        r.append('<title>%s</title></head>' % title)
+        r.append('<body><h1>%s</h1>' % title)
 
         # make file list
         try:
@@ -77,21 +79,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 image_list.append(name)
             else:
                 file_list.append(name)
-        
+
         # make file html
-        r.append('<hr>\n<ul>')
+        r.append('<hr><ul>')
         for name in file_list:
             fullname = os.path.join(path, name)
             displayname = linkname = name
-            # Append / for directories or @ for symbolic links
-            if os.path.isdir(fullname):
-                displayname = name + "/"
-                linkname = name + "/"
-            if os.path.islink(fullname):
-                displayname = name + "@"
-            r.append('<li><a href="%s">%s</a></li>' 
-                % (urllib.parse.quote(linkname), html.escape(displayname)))
-        r.append('</ul>\n<hr>')
+            # Skip non-directroy
+            if not os.path.isdir(fullname):
+                continue
+
+            displayname = name + "/"
+            linkname = name + "/"
+            r.append('<li><a href="%s">%s</a></li>' % (
+                urllib.parse.quote(linkname), html.escape(displayname)))
+        r.append('</ul><hr>')
 
         # image paging
         splits = urllib.parse.urlsplit(self.path)
@@ -99,7 +101,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if query.endswith('/'):
             query = query[:-1]
         querys = urllib.parse.parse_qs(query)
-        page = int(querys.get('page', '0')[0])
+        page = int(querys.get('page', '1')[0])
         page_total = math.ceil(len(image_list) / IMAGE_PER_PAGE)
         if page <= 1:
             page = 1
@@ -112,7 +114,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         else:
             page_prev = page - 1
             page_next = page + 1
-        
+
         # make image html
         first_index = IMAGE_PER_PAGE * (page - 1)
         last_index = IMAGE_PER_PAGE * page
@@ -122,13 +124,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 splits[0], splits[1], splits[2],
                 "page=%d" % page_prev, splits[4])))
         r.append('| {current}/{total} |'.format(
-                current = page, total = page_total))
+                current=page, total=page_total))
         r.append('<a href="%s">Next Page</a></h1>' % urllib.parse.urlunsplit((
                 splits[0], splits[1], splits[2],
                 "page=%d" % page_next, splits[4])))
-        
+
         # make html footer
-        r.append('</body>\n</html>')
+        r.append('</body></html>')
 
         # response
         encoded = '\n'.join(r).encode(enc)
@@ -141,12 +143,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         return f
 
+
 class TCPServer(socketserver.TCPServer):
     # IPv6 Support
-    address_family =  socket.AF_INET6
+    address_family = socket.AF_INET6
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     addr = ("", 8000)
     httpd = TCPServer(addr, Handler)
     print("Serving on %s:%d ..." % addr)
