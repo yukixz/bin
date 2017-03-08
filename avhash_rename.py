@@ -14,6 +14,7 @@ EXTS_MAP = {
     }
 DRY_RUN = False
 
+
 def avhash(im):
     if not isinstance(im, Image.Image):
         im = Image.open(im)
@@ -23,19 +24,22 @@ def avhash(im):
                   enumerate([0 if i < avg else 1 for i in im.getdata()]),
                   0)
 
+
 def generate_name(path):
     im = Image.open(path)
-    
+
     digest = avhash(im)
     digest_str = hex(digest)[2:].zfill(16)
     size = int(math.sqrt(im.size[0] * im.size[1]))
     size_str = hex(size % 0xFFFF)[2:].zfill(4)
-    
+
     return digest_str + size_str
+
 
 def fix_ext(ext):
     ext = ext.lower()
     return EXTS_MAP.get(ext, ext)
+
 
 def main(files):
     for path in files:
@@ -49,7 +53,7 @@ def main(files):
         if path == new_path:
             continue
         if os.path.exists(new_path):
-            print("!! {src} -> {dst}".format(src=path, dst=new_path))
+            print("{src} -> {dst} failed!".format(src=path, dst=new_path))
             continue
         print("{src} -> {dst}".format(src=path, dst=new_path))
         if not DRY_RUN:
@@ -61,6 +65,4 @@ if __name__ == '__main__':
     for key, value in optlist:
         if key == '-n':
             DRY_RUN = True
-    
     main(args)
-
